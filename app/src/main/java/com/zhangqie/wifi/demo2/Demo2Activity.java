@@ -38,7 +38,7 @@ public class Demo2Activity extends AppCompatActivity implements View.OnClickList
         textView = (TextView) findViewById(R.id.textView);
         findViewById(R.id.btn1).setOnClickListener(this);
         findViewById(R.id.btn2).setOnClickListener(this);
-        WifiManager mWifiManager=(WifiManager) this.getSystemService(Context.WIFI_SERVICE);
+        WifiManager mWifiManager=(WifiManager) this.getApplicationContext().getSystemService(Context.WIFI_SERVICE);
         mWifiInfo=mWifiManager.getConnectionInfo();
     }
 
@@ -83,7 +83,7 @@ public class Demo2Activity extends AppCompatActivity implements View.OnClickList
         Log.i(TAG, mWifiInfo.getLinkSpeed()+"S");  //65S
         Log.i(TAG, mWifiInfo.getIpAddress()+"ADD");
         Log.i(TAG, mWifiInfo.getMacAddress());  //44:c3:46:ab:ea:b6
-        Log.i(TAG, mWifiInfo.getRssi()+"802.11n网络的信号");
+        Log.i(TAG, mWifiInfo.getRssi()+":802.11n网络的信号");
         textView.setText(mWifiInfo.getBSSID() +"---"+mWifiInfo.getSSID() +"---"+mWifiInfo.getMacAddress());
     }
 

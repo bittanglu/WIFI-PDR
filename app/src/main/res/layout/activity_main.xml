@@ -13,11 +13,16 @@
         android:layout_height="wrap_content"
         android:text="WIFi查询"
         />
-
     <Button
         android:id="@+id/btn2"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="WIFI信息"
+        />
+    <Button
+        android:id="@+id/btn3"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="PDR行人航位推算"
         />
 </LinearLayout>

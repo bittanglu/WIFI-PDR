@@ -152,8 +152,6 @@ public class WifiAdmin {
                 }
             }
         }
-
-
     }
 
     // 得到网络列表
@@ -281,5 +279,4 @@ public class WifiAdmin {
         }
         return null;
     }
-
 }

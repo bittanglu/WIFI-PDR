@@ -1,14 +1,9 @@
 package com.zhangqie.wifi.demo1;
 
 import android.annotation.SuppressLint;
-import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.DialogInterface;
-import android.content.Intent;
-import android.content.IntentFilter;
 import android.content.SharedPreferences;
-import android.net.ConnectivityManager;
-import android.net.NetworkInfo;
 import android.net.wifi.ScanResult;
 import android.net.wifi.WifiManager;
 import android.os.Bundle;
@@ -52,7 +47,7 @@ public class Demo1Activity extends AppCompatActivity implements View.OnClickList
         super.onCreate(savedInstanceState);
         setContentView(R.layout.demo1);
         try {
-            mWifiAdmin = new WifiAdmin(Demo1Activity.this);
+            mWifiAdmin = new  WifiAdmin(Demo1Activity.this);
             initViews();
             mlistView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
                 @Override
@@ -166,7 +161,9 @@ public class Demo1Activity extends AppCompatActivity implements View.OnClickList
             TextView wifi_ssid=(TextView) view.findViewById(R.id.ssid);
             ImageView wifi_level=(ImageView) view.findViewById(R.id.wifi_level);
             wifi_ssid.setText(scanResult.SSID);
-            Log.i(TAG, "scanResult.SSID="+scanResult);
+            Log.i(TAG, "scanResult.SSID="+scanResult.SSID);
+            Log.i(TAG, "scanResult.BSSID="+scanResult.BSSID);
+            Log.i("scanResult.RSSI=", String.valueOf(scanResult.level));
             level= WifiManager.calculateSignalLevel(scanResult.level,5);
             if(scanResult.capabilities.contains("WEP")||scanResult.capabilities.contains("PSK")||
                     scanResult.capabilities.contains("EAP")){
@@ -198,11 +195,4 @@ public class Demo1Activity extends AppCompatActivity implements View.OnClickList
             listView.setLayoutParams(params);
         }
     }
-
-
-
-
-
-
-
 }
