@@ -18,7 +18,7 @@ public class GetWifiRssiActivity extends AppCompatActivity implements View.OnCli
     private void initView() {
         findViewById(R.id.query).setOnClickListener(this);
     }
-
+ 
     @Override
     public void onClick(View v) {
 
