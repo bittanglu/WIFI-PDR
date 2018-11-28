@@ -4,34 +4,71 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    tools:context="com.zhangqie.wifi.getRssi.GetWifiRssiActivity">
+    tools:context="com.zhangqie.wifi.getRssi.GetWifiRssiActivity"
+    android:orientation="vertical">
 
-    <TextView
+    <EditText
         android:id="@+id/location_x"
-        android:layout_width="189dp"
-        android:layout_height="50dp"
-        android:layout_marginStart="8dp"
-        android:text="TextView"
-        app:layout_constraintEnd_toStartOf="@+id/location_y"
-        app:layout_constraintStart_toStartOf="parent"
-        tools:layout_editor_absoluteY="1dp"
-        tools:ignore="MissingConstraints" />
+        android:layout_width="172dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:hint="X"
+        android:inputType="number|numberDecimal|numberSigned"
+        tools:ignore="MissingConstraints"
+        tools:layout_editor_absoluteX="0dp"
+        tools:layout_editor_absoluteY="0dp"
+         />
 
-    <TextView
+    <EditText
         android:id="@+id/location_y"
         android:layout_width="187dp"
-        android:layout_height="50dp"
-        android:layout_marginEnd="8dp"
-        android:text="TextView"
-        app:layout_constraintEnd_toEndOf="parent"
-        tools:layout_editor_absoluteY="1dp"
-        tools:ignore="MissingConstraints" />
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:hint="Y"
+        android:inputType="number|numberDecimal|numberSigned"
+        app:layout_constraintStart_toEndOf="@+id/location_x"
+        tools:ignore="MissingConstraints"
+        tools:layout_editor_absoluteY="0dp" />
 
     <Button
         android:id="@+id/query"
-        android:layout_width="385dp"
-        android:layout_height="53dp"
-        android:text="Query"
-        tools:layout_editor_absoluteY="51dp"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:layout_marginTop="8dp"
+        android:text="数据采集"
+        app:layout_constraintTop_toBottomOf="@+id/location_y"
+        tools:ignore="MissingConstraints"
+        tools:layout_editor_absoluteX="0dp" />
+
+    <Button
+        android:id="@+id/clear"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:layout_marginTop="8dp"
+        android:text="清空数据"
+        app:layout_constraintTop_toBottomOf="@+id/query"
+        tools:ignore="MissingConstraints"
+        tools:layout_editor_absoluteX="0dp" />
+
+    <Button
+        android:id="@+id/upload"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:layout_marginTop="8dp"
+        android:text="数据保存以及上传"
+        app:layout_constraintTop_toBottomOf="@+id/clear"
+        tools:ignore="MissingConstraints"
+        tools:layout_editor_absoluteX="0dp" />
+
+    <ListView
+        android:id="@+id/list_view"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_weight="6"
+        app:layout_constraintTop_toBottomOf="@+id/upload"
+        tools:layout_editor_absoluteX="0dp"
         tools:ignore="MissingConstraints" />
 </android.support.constraint.ConstraintLayout>

@@ -10,6 +10,8 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.CHANGE_NETWORK_STATE" />
     <uses-permission android:name="android.permission.BODY_SENSORS" />
+    <uses-permission android:name="android.permission.MOUNT_UNMOUNT_FILESYSTEMS" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
 
     <application
         android:allowBackup="true"
@@ -27,7 +29,10 @@
         <activity android:name=".demo1.Demo1Activity" />
         <activity android:name=".demo2.Demo2Activity" />
         <activity android:name=".getRssi.GetWifiRssiActivity" />
-        <activity android:name=".DPR.PDRActivity"></activity>
+        <activity android:name=".DPR.PDRActivity" />
+        <activity
+            android:name=".Fusion_Algorithm.Fusion_Algorithm_Activity"
+            android:label="@string/title_activity_fusion__algorithm_"></activity>
     </application>
 
 </manifest>

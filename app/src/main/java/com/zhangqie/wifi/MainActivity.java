@@ -8,6 +8,7 @@ import android.view.View;
 import com.zhangqie.wifi.DPR.PDRActivity;
 import com.zhangqie.wifi.demo1.Demo1Activity;
 import com.zhangqie.wifi.demo2.Demo2Activity;
+import com.zhangqie.wifi.getRssi.GetWifiRssiActivity;
 
 public class MainActivity extends AppCompatActivity implements View.OnClickListener {
 
@@ -23,6 +24,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         findViewById(R.id.btn1).setOnClickListener(this);
         findViewById(R.id.btn2).setOnClickListener(this);
         findViewById(R.id.btn3).setOnClickListener(this);
+        findViewById(R.id.btn4).setOnClickListener(this);
     }
 
     @Override
@@ -36,6 +38,9 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 break;
             case R.id.btn3:
                 startActivity(new Intent(MainActivity.this, PDRActivity.class));
+                break;
+            case R.id.btn4:
+                startActivity(new Intent(MainActivity.this, GetWifiRssiActivity.class));
                 break;
         }
     }

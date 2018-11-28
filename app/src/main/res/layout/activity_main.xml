@@ -25,4 +25,10 @@
         android:layout_height="wrap_content"
         android:text="PDR行人航位推算"
         />
+    <Button
+        android:id="@+id/btn4"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="指纹库建立"
+        />
 </LinearLayout>

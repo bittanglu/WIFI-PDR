@@ -1,4 +1,5 @@
 <resources>
     <string name="app_name">WiFiDemo</string>
     <string name="title_activity_get_wifi_rssi">GetWifiRssiActivity</string>
+    <string name="title_activity_fusion__algorithm_">Fusion_Algorithm_Activity</string>
 </resources>
