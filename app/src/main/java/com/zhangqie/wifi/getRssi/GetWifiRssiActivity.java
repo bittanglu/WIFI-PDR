@@ -1,5 +1,6 @@
 package com.zhangqie.wifi.getRssi;
 
+import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.SharedPreferences;
@@ -15,6 +16,7 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ListView;
 import android.widget.SimpleAdapter;
+import android.widget.Toast;
 
 import com.zhangqie.wifi.R;
 import com.zhangqie.wifi.demo1.WifiAdmin;
@@ -37,7 +39,7 @@ import static android.widget.Toast.makeText;
 public class GetWifiRssiActivity extends AppCompatActivity implements View.OnClickListener {
 
     EditText edit_x,edit_y;
-    Button button_query,button_upload;
+    Button button_query,button_upload,clear_button;
     private ListView listView;
     private List<Map<String, String>> list = new ArrayList<Map<String, String>>();
     SimpleAdapter adapter = null;
@@ -47,14 +49,41 @@ public class GetWifiRssiActivity extends AppCompatActivity implements View.OnCli
     protected WifiAdmin mWifiAdmin;
     private List<ScanResult> mWifiList;
     private String filename = "";
-    public int level;
     protected String ssid;
-    int collection_count = 2; //采集次数
+    int collection_count = 30; //采集次数
+
+    protected String sever_url = "http://a7b22499.ngrok.io/php/index.php";
+    //定义对话框
+    AlertDialog.Builder upload_builder = null;
+    AlertDialog.Builder clear_builder = null;
+    AlertDialog.Builder scanner_builder = null;
+
+    //用于UI更新
+    class uploadListViewThread extends Thread{
+        @SuppressLint("WrongConstant")
+        public void run(){
+            Log.d("开始采集","start");
+            listView.setAdapter(adapter);
+            Toast.makeText(GetWifiRssiActivity.this, "扫描结束，可以进行下一次扫描", 0)
+                    .show();
+            Log.d("开始结束","end");
+        }
+    }
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_get_wifi_rssi);
+        //初始化界面
         initView();
+        //初始化对话框
+        initDialog();
+        //传感器初始化
+        initSensnr();
+    }
+
+    //传感器初始化
+    private void initSensnr() {
         try {
             mWifiAdmin = new WifiAdmin(GetWifiRssiActivity.this);
             mlistView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
@@ -99,18 +128,84 @@ public class GetWifiRssiActivity extends AppCompatActivity implements View.OnCli
         } catch (Exception e) {
             e.printStackTrace();
         }
-
-        //用于UI更新
-        class uploadListViewThread extends Thread{
-            public void run(){
-                Log.d("开始采集","start");
-                listView.setAdapter(adapter);
-                Log.d("开始结束","end");
-            }
-        }
     }
+    //初始化Dialog
+    protected  void initDialog(){
+        // 设置参数
+        scanner_builder = new AlertDialog.Builder(this);
+        scanner_builder.setTitle("请做出选择").setIcon(R.drawable.notification_template_icon_bg)
+                .setMessage("确认输入无误")
+                .setPositiveButton("确定", new DialogInterface.OnClickListener() {// 积极
 
-    private void initView() {
+                    @Override
+                    public void onClick(DialogInterface dialog,
+                                        int which) {
+                        // TODO Auto-generated method stub
+                        Toast.makeText(GetWifiRssiActivity.this, "开始扫描", 0)
+                                .show();
+                        GetRssiThread scanrssi = new GetRssiThread();
+                        scanrssi.start();
+
+                    }
+                }).setNegativeButton("取消", new DialogInterface.OnClickListener() {// 消极
+
+                    @Override
+                    public void onClick(DialogInterface dialog,
+                                        int which) {
+                        // TODO Auto-generated method stub
+                        Toast.makeText(GetWifiRssiActivity.this, "已取消", 0)
+                                .show();
+                    }
+                });
+        upload_builder = new AlertDialog.Builder(this);
+        upload_builder.setTitle("请做出选择").setIcon(R.drawable.notification_template_icon_bg)
+                .setMessage("是否上传数据")
+                .setPositiveButton("确定", new DialogInterface.OnClickListener() {// 积极
+
+                    @Override
+                    public void onClick(DialogInterface dialog,
+                                        int which) {
+                        // TODO Auto-generated method stub
+                        Toast.makeText(GetWifiRssiActivity.this, "数据开始上传", 0)
+                                .show();
+                        new Thread(uploadurlThread).start();
+                    }
+                }).setNegativeButton("取消", new DialogInterface.OnClickListener() {// 消极
+
+            @Override
+            public void onClick(DialogInterface dialog,
+                                int which) {
+                // TODO Auto-generated method stub
+                Toast.makeText(GetWifiRssiActivity.this, "已取消", 0)
+                        .show();
+            }
+        });
+        clear_builder = new AlertDialog.Builder(this);
+        clear_builder.setTitle("请做出选择").setIcon(R.drawable.notification_template_icon_bg)
+                .setMessage("是否清除数据")
+                .setPositiveButton("确定", new DialogInterface.OnClickListener() {// 积极
+
+                    @Override
+                    public void onClick(DialogInterface dialog,
+                                        int which) {
+                        // TODO Auto-generated method stub
+                        Toast.makeText(GetWifiRssiActivity.this, "数据开始清除", 0)
+                                .show();
+                        res.clear();        // 设置参数
+
+                    }
+                }).setNegativeButton("取消", new DialogInterface.OnClickListener() {// 消极
+
+            @Override
+            public void onClick(DialogInterface dialog,
+                                int which) {
+                // TODO Auto-generated method stub
+                Toast.makeText(GetWifiRssiActivity.this, "已取消", 0)
+                        .show();
+            }
+        });
+    }
+    private void initView(){
         findViewById(R.id.query).setOnClickListener(this);
 
         edit_x = (EditText)findViewById(R.id.location_x);
@@ -121,6 +216,9 @@ public class GetWifiRssiActivity extends AppCompatActivity implements View.OnCli
 
         button_upload = (Button)findViewById(R.id.upload);
         button_upload.setOnClickListener(GetWifiRssiActivity.this);
+
+        clear_button = (Button)findViewById(R.id.clear);
+        clear_button.setOnClickListener(GetWifiRssiActivity.this);
 
         listView = (ListView)findViewById(R.id.list_view);
     }
@@ -149,12 +247,22 @@ public class GetWifiRssiActivity extends AppCompatActivity implements View.OnCli
                     e.printStackTrace();
                 }
             }
+            //不进行合并处理的，收集所有的数据
+            for(int i = 0 ;i < collection_count ;i++){
+                Log.d("第"+i+"次采集信息",RSSI.toString(temp.get(i)));
+            }
+            res.addAll(temp);
+            updata_ListView(temp.get(20));
+            Log.d("采集结束","end");
+
+            /**进行数据合并处理
             RSSI merge = new RSSI(x,y);
             merge.merge(temp);
             Log.d("采集信息",RSSI.toString(merge));
             updata_ListView(merge);
             res.add(merge);
             Log.d("采集结束","end");
+             **/
         }
     }
 
@@ -162,15 +270,13 @@ public class GetWifiRssiActivity extends AppCompatActivity implements View.OnCli
     public void onClick(View v) {
         switch (v.getId()){
             case R.id.query:
-                GetRssiThread scanrssi = new GetRssiThread();
-                scanrssi.start();
+                scanner_builder.create().show();
                 break;
             case R.id.upload:
                 filename = getApplicationContext().getFilesDir().getAbsolutePath() + "/data.txt";
                 RSSI.writeToFile(res,filename);
                 Log.d("文件目录",filename);
-                res.clear();
-                new Thread(uploadurlThread).start();
+                upload_builder.create().show();
                 try {
                     RSSI.readFromFile(res,filename);
                     for(RSSI temp : res)
@@ -180,7 +286,8 @@ public class GetWifiRssiActivity extends AppCompatActivity implements View.OnCli
                 }
                 break;
             case R.id.clear:
-                res.clear();
+                Log.d("清空数据","开始");
+                clear_builder.create().show();
                 break;
         }
     }
@@ -218,14 +325,14 @@ public class GetWifiRssiActivity extends AppCompatActivity implements View.OnCli
      * 上传文件到服务器
      * @param context
      * @param uploadUrl     上传服务器地址
-     * @param oldFilePath       本地文件路径
+     * @param oldFilePath    本地文件路径
      */
     //用于上传数据的线程
     Runnable  uploadurlThread  = new  Runnable (){
         @Override
         public void run(){
             Log.d("数据上传","start");
-            String uploadUrl = " https://abe12dd6.ngrok.io/php/index.php";
+            String uploadUrl = sever_url;
             String oldFilePath = filename;
             try {
                 URL url = new URL(uploadUrl);
@@ -247,7 +354,7 @@ public class GetWifiRssiActivity extends AppCompatActivity implements View.OnCli
                 //text/plain能上传纯文本文件的编码格式
                 con.setRequestProperty("Content-Type", "text/plain");
 
-                // 设置DataOutputStream
+                //设置DataOutputStream
                 DataOutputStream ds = new DataOutputStream(con.getOutputStream());
 
                 // 取得文件的FileInputStream
@@ -280,7 +387,7 @@ public class GetWifiRssiActivity extends AppCompatActivity implements View.OnCli
             } catch (Exception e) {
                 e.printStackTrace();
                 Log.d("文件上传失败！" ,oldFilePath);
-                Log.d("报错信息toString：",e.toString());
+                Log.d("报错信息",e.toString());
             }
             Log.d("数据上传结束","end");
         }

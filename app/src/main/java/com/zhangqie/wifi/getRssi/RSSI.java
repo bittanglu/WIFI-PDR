@@ -27,7 +27,7 @@ import java.io.*;
  WKNN(ArrayList<RSSI> res,int k) WKNN的实现，找到K个距离最近的点
 
  */
-public class RSSI{
+public  class RSSI{
     //坐标
     double x;
     double y;
@@ -40,7 +40,7 @@ public class RSSI{
         this.x = 0;
         this.y = 0;
     }
-    RSSI(double x,double y){
+    public RSSI(double x, double y){
         this.x = x;
         this.y = y;
     }
@@ -106,8 +106,14 @@ public class RSSI{
         String st = "";
         int len = rssi.BSSID.size();
         st += rssi.x + "," + rssi.y;
-        for(int i = 0 ;i < len;i++){
-            st += "," + rssi.BSSID.get(i) + "," + rssi.rssi.get(i) + "," + rssi.variance.get(i);
+        if(rssi.variance.size() == 0){
+            for(int i = 0 ;i < len;i++){
+                st += "," + rssi.BSSID.get(i) + "," + rssi.rssi.get(i);
+            }
+        }else{
+            for(int i = 0 ;i < len;i++){
+                st += "," + rssi.BSSID.get(i) + "," + rssi.rssi.get(i) + "," + rssi.variance.get(i);
+            }
         }
         st +="\r\n";
         return st;
@@ -157,6 +163,35 @@ public class RSSI{
             return (int) (c1.var - c2.var);
         }
     };
+    //自适应匹配，选取最佳的M个AP节点计算距离
+    public void Adaptive_matching(ArrayList<RSSI> res,int k){
+        int size = this.BSSID.size();
+        int m = size;
+        int[] array = new int[size];
+        int i = 0;
+        for(int temp : this.rssi){
+            if (temp == - min_rssi){
+                array[i++] = temp;
+                m--;
+            }
+        }
+        if(m < 10) m = (int) (Math.log(m)/Math.log(2) + 1);
+        RSSI temp = new RSSI();
+        Arrays.sort(array);
+        //输出控制台查看
+        for(int unm:array) {
+            System.out.print(unm);
+            System.out.print("");
+        }
+        //记录选取的m个ap节点所在的位置
+        int[] table = new int[m];
+        for(i = 0;i < m;i++){
+            for(int j = 0;j < size;j++)
+                if(array[i] == this.rssi.get(j))
+                    temp.addItem(this.BSSID.get(j),this.rssi.get(j));
+        }
+        this.WKNN(res,k);
+    }
     //WKKN
     public void WKNN(ArrayList<RSSI> res,int k){
         ArrayList<Integer> x = new ArrayList<Integer>();
@@ -164,9 +199,10 @@ public class RSSI{
         int len_a = this.BSSID.size();
         int len_b = 0;
         int min = -105;
-        //优先队列
 
+        //优先队列
         Queue<location> locationPriorityQueue = new PriorityQueue<>(k,varComparator);
+
         int index = 0;
         for(RSSI temp : res){
             double sum_var = 0;
@@ -193,6 +229,8 @@ public class RSSI{
             y.clear();
         }
         int count = k;
+        this.x /= 0;
+        this.y /= 0;
         while(count > 0){
             location temp = locationPriorityQueue.poll();
             this.x += temp.x;
@@ -201,5 +239,85 @@ public class RSSI{
         }
         this.x /= k;
         this.y /= k;
+    }
+    //Variable K-nearest neighbors based on weighted distance
+    //K值自动调节的调节的WKNN算法，效果优于WKNN
+    public void Varity_WKNN(ArrayList<RSSI> res){
+        ArrayList<Integer> x = new ArrayList<Integer>();
+        ArrayList<Integer> y = new ArrayList<Integer>();
+        int len_a = this.BSSID.size();
+        int len_b = 0;
+        int min = -105;
+        //优先队列
+        Queue<location> locationPriorityQueue = new PriorityQueue<>(2,varComparator);
+        int index = 0;
+        for(RSSI temp : res){
+            double sum_var = 0;
+            len_b = temp.BSSID.size();
+            for(int i = 0 ;i < len_a;i++){
+                String current = this.BSSID.get(i);
+                for(int j = 0 ;j < len_b;j++){
+                    if (current.equals(temp.BSSID.get(j)) && this.rssi.get(i) != min_rssi && temp.rssi.get(j) != min_rssi){
+                        x.add(i);
+                        y.add(j);
+                        sum_var += 1/(1 + temp.variance.get(j));
+                        break;
+                    }
+                    //sum_var += 1/(1 + temp.variance.get(j));
+                }
+            }
+            double distance = 0;
+            double dis_max = 0;
+            for (int i = 0;i < x.size();i++){
+                int curr_i = x.get(i),curr_j = y.get(i);
+                distance += (1/(1+temp.variance.get(curr_j))/sum_var)*(this.rssi.get(curr_i) - temp.rssi.get(curr_j))*(this.rssi.get(curr_i) - temp.rssi.get(curr_j));
+                dis_max = Math.max(dis_max,distance);
+            }
+            distance += 2 * (len_a - x.size()) * dis_max;
+			/*
+			Processing of undetected data in fingerprint database
+			for(int i = 0;i < len_b;i++){
+				if(!y.contains(i)){
+					distance += (1/(1+temp.variance.get(i))/sum_var)*(min - temp.rssi.get(i))*(min - temp.rssi.get(i));
+				}
+			}
+			*/
+            locationPriorityQueue.add(new location(temp.x,temp.y,Math.sqrt(distance)));
+            x.clear();
+            y.clear();
+        }
+        int count = 0;
+        this.x = 0;
+        this.y = 0;
+        double error = 0;
+        double error_var = 0,error_pro = 0;
+        while(count < 10){
+            location temp = locationPriorityQueue.poll();
+            error_var = temp.var - error;
+            this.x += temp.x;
+            this.y += temp.y;
+            count++;
+            if (error_pro != 0 && error_var >= 1.12 * error_pro)
+                break;
+            error_pro = error_var;
+        }
+        this.x /= count;
+        this.y /= count;
+    }
+    //normalization
+    //归一化处理，效果并不好
+    public static void Normalization(RSSI temp){
+        int len = temp.rssi.size();
+        int[] a = new int[len];
+        int sum = 0;
+        for(int i = 0;i < len;i++){
+            a[i] = temp.rssi.get(i) - min_rssi;
+            sum += a[i];
+        }
+        temp.rssi.clear();
+        for(int i = 0;i < len;i++){
+            a[i] = (a[i]*100)/sum;
+            temp.rssi.add(a[i]);
+        }
     }
 }
