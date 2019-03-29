@@ -1,5 +1,7 @@
 package com.zhangqie.wifi.DPR;
 
+import com.zhangqie.wifi.getRssi.location;
+
 import java.util.ArrayList;
 
 /**
@@ -7,18 +9,24 @@ import java.util.ArrayList;
  */
 public class pdr_rssi{
     //所需要的基本元素变量
-    point point_pro,point_final,point_pdr;
+    point point_pro = new point();
+    point point_final = new point();
+    point point_pdr = new point();;
     double angle_pdr,distance_pdr;
-    ArrayList<point> location_list;
+    ArrayList<location> location_list = new ArrayList<location>();
     //计算出的结果
     ArrayList<Double> angle_list = new ArrayList<Double>();
     ArrayList<Double> distance_error_rssi = new ArrayList<Double>();
+
     ArrayList<Double> probability_angle = new ArrayList<Double>();
     ArrayList<Double> probability_distance = new ArrayList<Double>();
 
     ////所需要的方法
 
     //设置基础变量
+    pdr_rssi(){
+        point_pro = new point(0,0);
+    }
     public void setPonitPro(double x,double y){
         point_pro.setCoordinate(x,y);
     }
@@ -39,15 +47,18 @@ public class pdr_rssi{
     public void calAngleList(){
         int len = location_list.size();
         for (int i = 0;i < len;i++){
-            angle_list.add(getAngle(point_pro,location_list.get(i)) - angle_pdr);
+            point temp = new point(location_list.get(i).getX(),location_list.get(i).getY());
+            angle_list.add(getAngle(temp,point_pro) - angle_pdr);
         }
     }
     public void calDistanceList(){
         int len = location_list.size();
         for (int i = 0;i < len;i++){
-            distance_error_rssi.add(getDistance(point_pro,location_list.get(i)) - distance_pdr);
+            point temp = new point(location_list.get(i).getX(),location_list.get(i).getY());
+            distance_error_rssi.add(getDistance(point_pro,temp) - distance_pdr);
         }
     }
+    //计算一组数据的高斯分布概率
     public void calProbability(ArrayList<Double> list,ArrayList<Double> res){
         double average = 0.0,sigma = 0.0;
         int len = list.size();
@@ -84,6 +95,22 @@ public class pdr_rssi{
         for (int i = 0;i < len;i++){
             p_final.add(weight * p_wifi.get(i) + (1 - weight)*listA.get(i)*listB.get(i));
         }
+    }
+    public void calFinalPoint(ArrayList<Double> p,ArrayList<location> list) {
+        double x =0.0,y=0.0;
+        int len = p.size();
+        for(int i = 0;i < len;i++){
+            x += p.get(i) * list.get(i).getX();
+            y += p.get(i) * list.get(i).getY();
+        }
+        this.setPonitFinal(x,y);
+    }
+    public void clearAll(){
+        location_list.clear();
+        angle_list.clear();
+        distance_error_rssi.clear();
+        probability_angle.clear();
+        probability_distance.clear();
     }
 
     //测试代码

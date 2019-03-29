@@ -6,6 +6,7 @@ import android.support.v7.app.AppCompatActivity;
 import android.view.View;
 
 import com.zhangqie.wifi.DPR.PDRActivity;
+import com.zhangqie.wifi.DPR.PdrTestActivity;
 import com.zhangqie.wifi.demo1.Demo1Activity;
 import com.zhangqie.wifi.demo2.Demo2Activity;
 import com.zhangqie.wifi.getRssi.GetWifiRssiActivity;
@@ -37,7 +38,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 startActivity(new Intent(MainActivity.this, Demo2Activity.class));
                 break;
             case R.id.btn3:
-                startActivity(new Intent(MainActivity.this, PDRActivity.class));
+                startActivity(new Intent(MainActivity.this, PdrTestActivity.class));
                 break;
             case R.id.btn4:
                 startActivity(new Intent(MainActivity.this, GetWifiRssiActivity.class));

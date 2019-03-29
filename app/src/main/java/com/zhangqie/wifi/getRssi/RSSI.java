@@ -36,13 +36,19 @@ public  class RSSI{
     ArrayList<Double> variance = new ArrayList<Double>();
     ArrayList<String> BSSID = new  ArrayList<String> ();
     ArrayList<Integer> rssi = new  ArrayList<Integer>();
-    RSSI(){
+    public RSSI(){
         this.x = 0;
         this.y = 0;
     }
     public RSSI(double x, double y){
         this.x = x;
         this.y = y;
+    }
+    public double getX(){
+        return this.x;
+    }
+    public double getY(){
+        return this.y;
     }
     public void setCoordinate(double x,double y){
         this.x = x;
@@ -155,12 +161,22 @@ public  class RSSI{
             e.printStackTrace();
         }
     }
+    public static void writeToFile(String res,String Filename) {
+        try{
+            FileWriter writer = new FileWriter(Filename,false);
+            writer.write(res);
+            writer.flush();
+            writer.close();
+        }catch (Exception e){
+            e.printStackTrace();
+        }
+    }
     //匿名Comparator实现
     public static Comparator<location> varComparator = new Comparator<location>(){
 
         @Override
         public int compare(location c1, location c2) {
-            return (int) (c1.var - c2.var);
+            return (int) (c1.distance - c2.distance);
         }
     };
     //自适应匹配，选取最佳的M个AP节点计算距离
@@ -251,6 +267,7 @@ public  class RSSI{
         //优先队列
         Queue<location> locationPriorityQueue = new PriorityQueue<>(2,varComparator);
         int index = 0;
+        double dis_sum = 0;
         for(RSSI temp : res){
             double sum_var = 0;
             len_b = temp.BSSID.size();
@@ -278,31 +295,142 @@ public  class RSSI{
 			Processing of undetected data in fingerprint database
 			for(int i = 0;i < len_b;i++){
 				if(!y.contains(i)){
-					distance += (1/(1+temp.variance.get(i))/sum_var)*(min - temp.rssi.get(i))*(min - temp.rssi.get(i));
+					distance += (1/(1+temp.variance.get(i))/sum_var)*(min - temp.rssi.get(i))*(min - temp.rssi
+					get(i));
 				}
 			}
 			*/
+            dis_sum += Math.sqrt(distance);
             locationPriorityQueue.add(new location(temp.x,temp.y,Math.sqrt(distance)));
             x.clear();
             y.clear();
         }
+        double dis_average = dis_sum / locationPriorityQueue.size();
         int count = 0;
         this.x = 0;
         this.y = 0;
         double error = 0;
         double error_var = 0,error_pro = 0;
+        //Using Similarity as Measure
+		/*
+		location temp = locationPriorityQueue.poll();
+		while(temp.var <= dis_average){
+			count++;
+			this.x += temp.x;
+			this.y += temp.y;
+			temp = locationPriorityQueue.poll();
+		}
+		*/
+        //Using distance growth as a measure
+        double Reciprocal_dis_sum = 0.0;
         while(count < 10){
-            location temp = locationPriorityQueue.poll();
-            error_var = temp.var - error;
-            this.x += temp.x;
-            this.y += temp.y;
+            location location_temp = locationPriorityQueue.poll();
+            error_var = location_temp.distance - error;
+            this.x += location_temp.x/location_temp.getDis();
+            this.y += location_temp.y/location_temp.getDis();
+            Reciprocal_dis_sum += 1/location_temp.getDis();
             count++;
             if (error_pro != 0 && error_var >= 1.12 * error_pro)
                 break;
             error_pro = error_var;
         }
-        this.x /= count;
-        this.y /= count;
+        this.x = this.x/Reciprocal_dis_sum;
+        this.y = this.y/Reciprocal_dis_sum;
+    }
+    //Enhanced Weighted K-Nearest Neighbor , Consideration of node stability
+    //res为指纹库列表
+    //probability_distance为结果列表的可能性列表
+    //location_res为位置结果列表
+    public void EWKNN(ArrayList<RSSI> res,ArrayList<Double> probability_distance,ArrayList<location> location_res){
+        ArrayList<Integer> x = new ArrayList<Integer>();
+        ArrayList<Integer> y = new ArrayList<Integer>();
+        int len_a = this.BSSID.size();
+        int len_b = 0;
+        int min = -105;
+        //优先队列
+        Queue<location> locationPriorityQueue = new PriorityQueue<>(2,varComparator);
+        int index = 0;
+        for(RSSI temp : res){
+            double sum_var = 0;
+            len_b = temp.BSSID.size();
+            for(int i = 0 ;i < len_a;i++){
+                String current = this.BSSID.get(i);
+                for(int j = 0 ;j < len_b;j++){
+                    if (current.equals(temp.BSSID.get(j)) && this.rssi.get(i) != min_rssi && temp.rssi.get(j) != min_rssi){
+                        x.add(i);
+                        y.add(j);
+                        sum_var += 1/(1 + temp.variance.get(j));
+                        break;
+                    }
+                    //sum_var += 1/(1 + temp.variance.get(j));
+                }
+            }
+            double distance = 0;
+            double dis_max = 0;
+            for (int i = 0;i < x.size();i++){
+                int curr_i = x.get(i),curr_j = y.get(i);
+                distance += (this.rssi.get(curr_i) - temp.rssi.get(curr_j))*(this.rssi.get(curr_i) - temp.rssi.get(curr_j));
+                dis_max = Math.max(dis_max,distance);
+            }
+            distance += 2 * (len_a - x.size()) * dis_max;
+			/*
+			Processing of undetected data in fingerprint database
+			for(int i = 0;i < len_b;i++){
+				if(!y.contains(i)){
+					distance += (1/(1+temp.variance.get(i))/sum_var)*(min - temp.rssi.get(i))*(min - temp.rssi
+					get(i));
+				}
+			}
+			*/
+            if(distance == 0.0){
+                this.x = temp.x;
+                this.y = temp.y;
+                return ;
+            }
+            location loc = new location(temp.x,temp.y,Math.sqrt(distance));
+            if(loc == null) System.out.println("RSSI:loc = null");
+            locationPriorityQueue.add(loc);
+            x.clear();
+            y.clear();
+        }
+        ArrayList<location> location_list = new ArrayList<location>();
+        location location_standard = locationPriorityQueue.poll();
+        if(location_standard == null) System.out.println("RSSI:location = null");
+        location_list.add(location_standard);
+
+        //Computing Reserved Nodes
+        double dis_sum = location_standard.getDis();
+        while(true){
+            location location_temp = locationPriorityQueue.poll();
+            if(location_temp == null || location_temp.getDis() > 1.5 * location_standard.getDis())
+                break;
+            location_list.add(location_temp);
+            dis_sum += location_temp.getDis();
+        }
+        double dis_average = dis_sum / location_list.size();
+        double Reciprocal_dis_sum = 0.0;
+        int count = 0;
+        for(int i = 0;i < location_list.size();i++){
+            location location_temp = location_list.get(i);
+            if(location_temp.getDis() > dis_average){
+                if(i == 0 ){
+                    System.out.println("dis_average:" + Double.toString(dis_average));
+                    System.out.println("location_temp.getDis():" + Double.toString(location_temp .getDis()));
+                }
+                break;
+            }
+            count++;
+            this.x += location_temp.x/location_temp.getDis();
+            this.y += location_temp.y/location_temp.getDis();
+            location_res.add(location_temp);
+            Reciprocal_dis_sum += 1/location_temp.getDis();
+        }
+        this.x = this.x/Reciprocal_dis_sum;
+        this.y = this.y/Reciprocal_dis_sum;
+        for(int i = 0;i < location_res.size();i++){
+            probability_distance.add((1/location_res.get(i).getDis()) / Reciprocal_dis_sum);
+        }
+        if(this.x > 1000) System.out.println("Reciprocal_dis_sum:" + Double.toString(Reciprocal_dis_sum));
     }
     //normalization
     //归一化处理，效果并不好

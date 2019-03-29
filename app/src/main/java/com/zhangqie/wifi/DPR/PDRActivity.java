@@ -22,11 +22,17 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ListView;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import com.zhangqie.wifi.R;
 import com.zhangqie.wifi.demo1.WifiAdmin;
 import com.zhangqie.wifi.getRssi.RSSI;
+import com.zhangqie.wifi.getRssi.location;
 
+import java.io.File;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 
 import static android.widget.Toast.LENGTH_SHORT;
@@ -46,30 +52,128 @@ public class PDRActivity extends AppCompatActivity implements View.OnClickListen
     private TextView Azimuth,Pithch,Roll,Step;
     //PDR行人推算辅助类定义
     private Step_auxiliary loaction_auxiliary = new Step_auxiliary();
+    //定义18个方向的数组
+    float[] pdr_direction = new float[16];
 
     float[] accelerometerValues = new float[3];
     float[] magneticFieldValues = new float[3];
     float mSteps0 = 0,mSteps1 = 0;
-    double pre_direct = 0.0;
+    double pre_direct =  0;//x轴方向，东北
     double current_direct = 0.0;
-    double x = 0.0,y = 0.0;
-    double step_length = 0.537748;
+    double x = 0.0,y = 0.0,dx = 0.0,dy = 0.0;
+    double step_length = 0.75;
 
     //定义指纹定位所需变量
     protected WifiAdmin mWifiAdmin;
     private List<ScanResult> mWifiList;
     protected String ssid;
     private ListView mlistView;
+    //存储指纹库变量
+    ArrayList<RSSI> database = new ArrayList<RSSI>();
+    //内部存储位置
+    String data_filename = "";
+    String pdr_data = "";
+    String rssi_data = "";
+    //服务器存储位置
+    String urlStr = "https://567a4fa2.ngrok.io";
+    //记录PDR行走过程
+    ArrayList<point> pdr_list = new ArrayList<point>();
+    String record = "";
+    //记录RSSI采集信息
+    ArrayList<RSSI> rssi_list = new ArrayList<RSSI>();
+    //融合算法辅助类以及变量
+    pdr_rssi res_cal = new pdr_rssi();
+    ArrayList<location> location_res;
 
     @Override
     protected void onCreate(Bundle savedInstanceState){
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_pdr);
         initView();
-        initSensnr();
+        //initSensnr();
+        thread.start();
+        //加载数据库
+        //initDataBase();
     }
+
+    private void initDataBase() {
+
+        data_filename = getApplicationContext().getFilesDir().getAbsolutePath() + "/database.txt";
+        Log.d("文件目录",data_filename);
+        File file = new File(data_filename);
+        // 如果文件路径所对应的文件存在，并且是一个文件，则直接删除
+        if (file.exists() && file.isFile()) {
+            //数据库存在
+            try {
+                Log.d(TAG,"数据库存在");
+                RSSI.readFromFile(database,data_filename);
+                Log.d(TAG,"数据库信息:");
+                for(RSSI temp : database) {
+                    Log.d(TAG,temp.toString());
+                }
+            }catch(Exception e) {
+                e.printStackTrace();
+            }
+        }else{
+            //数据库不存在，服务器获取数据
+            try {
+                Log.d(TAG,"本地数据库不存在，网络获取中...");
+                String data_str = NetTool.readTxtFile( urlStr+"/php/database.txt","utf-8");
+                Log.d(TAG,data_str);
+                RSSI.writeToFile(data_str,data_filename);
+                RSSI.readFromFile(database,data_filename);
+                Log.d(TAG,"数据库下载完成");
+                Log.d(TAG,"数据库信息:");
+                for(RSSI temp : database) {
+                    Log.d(TAG,temp.toString());
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+    }
+    //判断文件是否存在
+    public boolean fileIsExists(String strFile)
+    {
+        try {
+            File f=new File(strFile);
+            if(!f.exists()){
+                return false;
+            }
+        }
+        catch (Exception e){
+            return false;
+        }
+        return true;
+    }
+
     //传感器初始化
     private void initSensnr() {
+        //获取SensorManager管理器实例
+        mSensorManager = (SensorManager)getSystemService(SENSOR_SERVICE);
+
+        // getSensorList用于列出设备支持的所有sensor列表
+        List<Sensor> sensorList = mSensorManager.getSensorList(Sensor.TYPE_ALL);
+        Log.i(TAG,"Sensor size:"+sensorList.size());
+        for (Sensor sensor : sensorList) {
+            Log.i(TAG,"Supported Sensor: "+sensor.getName());
+        }
+        // 获取计步器sensor
+        stepCounter = mSensorManager.getDefaultSensor(Sensor.TYPE_STEP_COUNTER);
+        aSensor = mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
+        mSensor = mSensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD);
+        if(stepCounter != null){
+            // 如果sensor找到，则注册监听器
+            mSensorManager.registerListener((SensorEventListener) this,stepCounter,10000);
+        }else{
+            Log.e(TAG,"no step counter sensor found");
+        }
+        //方位监测
+        mSensorManager.registerListener((SensorEventListener) this, aSensor, SensorManager.SENSOR_DELAY_NORMAL);
+        mSensorManager.registerListener((SensorEventListener) this, mSensor,SensorManager.SENSOR_DELAY_NORMAL);
+
+        //更新显示数据的方法
+        calculateOrientation();
         try {
             mWifiAdmin = new WifiAdmin(PDRActivity.this);
             mlistView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
@@ -132,11 +236,12 @@ public class PDRActivity extends AppCompatActivity implements View.OnClickListen
         @Override
         public void handleMessage(Message msg){
             super.handleMessage(msg);
+            //msg.what == 1，进行显示的更新
             if(msg.what == 1){
-                Azimuth.setText("Azimuth:" + direct[0]);
-                Pithch.setText("Pithch:" + direct[1]);
-                Roll.setText("Roll:" + direct[2]);
-                String temp = "当前步数:" + (mSteps1 - mSteps0) +" ";
+                Azimuth.setText("当前方向:" + current_direct);
+                Pithch.setText("与X轴夹角:" + Double.toString(current_direct - pre_direct));
+                Roll.setText("移动距离:" + "(" + dx + "," + dy + ")");
+                String temp = "移动步数:" + (mSteps1 - mSteps0) +" ";
                 temp += "当前坐标（" + x + "," + y + ")";
                 Step.setText(temp);
             }
@@ -158,37 +263,29 @@ public class PDRActivity extends AppCompatActivity implements View.OnClickListen
         Pithch = (TextView)findViewById(R.id.Pithch);
         Roll = (TextView)findViewById(R.id.Roll);
         Step = (TextView)findViewById(R.id.Step);
-        Step.setText("当前步数:" + mSteps0);
         //用于测试，显示打印当前步数
-        //获取SensorManager管理器实例
-        mSensorManager = (SensorManager)getSystemService(SENSOR_SERVICE);
-
-        // getSensorList用于列出设备支持的所有sensor列表
-        List<Sensor> sensorList = mSensorManager.getSensorList(Sensor.TYPE_ALL);
-        Log.i(TAG,"Sensor size:"+sensorList.size());
-        for (Sensor sensor : sensorList) {
-            Log.i(TAG,"Supported Sensor: "+sensor.getName());
-        }
-        // 获取计步器sensor
-        stepCounter = mSensorManager.getDefaultSensor(Sensor.TYPE_STEP_COUNTER);
-        aSensor = mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
-        mSensor = mSensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD);
-        if(stepCounter != null){
-            // 如果sensor找到，则注册监听器
-            mSensorManager.registerListener((SensorEventListener) this,stepCounter,10000);
-        }else{
-            Log.e(TAG,"no step counter sensor found");
-        }
+        Step.setText("当前步数:" + mSteps0);
 
         Button getstep = (Button) findViewById(R.id.getstep);
         getstep.setOnClickListener(this);
+        Button start_pdr = (Button) findViewById(R.id.start) ;
+        start_pdr.setOnClickListener(this);
+        Button end_pdr = (Button) findViewById(R.id.end);
+        end_pdr.setOnClickListener(this);
+        Button detele = (Button) findViewById(R.id.delete);
+        detele.setOnClickListener(this);
+        //数据初始化
+        int index = 0;
+        double min = Double.MAX_VALUE;
+        for(int i = 0;i < 16;i++) {
+            pdr_direction[i] = (float) (24 * i - 180);
+            if(min > Math.abs(pdr_direction[i] - 173)) {
+                min = Math.abs(pdr_direction[i] - 173);
+                index = i;
+            }
+        }
+        pre_direct = pdr_direction[index];
 
-        //方位监测
-        mSensorManager.registerListener((SensorEventListener) this, aSensor, SensorManager.SENSOR_DELAY_NORMAL);
-        mSensorManager.registerListener((SensorEventListener) this, mSensor,SensorManager.SENSOR_DELAY_NORMAL);
-
-        //更新显示数据的方法
-        calculateOrientation();
     }
     // 实现SensorEventListener回调接口，在sensor改变时，会回调该接口
     // 并将结果通过event回传给app处理
@@ -199,28 +296,67 @@ public class PDRActivity extends AppCompatActivity implements View.OnClickListen
             magneticFieldValues = event.values;
         if (event.sensor.getType() == Sensor.TYPE_ACCELEROMETER)
             accelerometerValues = event.values;
+        RSSI get_rssi = scanner_rssi();
         calculateOrientation();
+        //步数更新
         if (event.sensor.getType() == Sensor.TYPE_STEP_COUNTER)
         {
             if (mSteps0 == 0)
             {
+                mSteps0 = event.values[0];
                 mSteps1 = event.values[0];
-                mSteps0 = 0;
             }
             else {
-                mSteps0 = mSteps1;
                 mSteps1 = event.values[0];
             }
-            pre_direct = current_direct;
-            current_direct = Double.valueOf(direct[0]);
+            //pre_direct = current_direct;
+            //current_direct = Double.valueOf(direct[0]);
 
             //位置更新
-            x += step_length * Math.sin(current_direct - pre_direct);
-            y += step_length * Math.cos(current_direct - pre_direct);
+            if (mSteps1 != mSteps0) {
+                dx = step_length * Math.cos(current_direct - pre_direct);
+                dy = step_length * Math.sin(current_direct - pre_direct);
+                x += dx;
+                y += dy;
+            }
+            //pdr_list.add(new point((current_direct - pre_direct),step_length));
+            //calFinalStation();
             //界面更新
             thread.start();
             Log.i(TAG,"Detected step changes:"+event.values[0]);
         }
+    }
+
+    public void calFinalStation(){
+        RSSI rssi = scanner_rssi();
+        rssi_list.add(rssi);
+        /***
+         * 进行一次计算
+         *
+        ArrayList<Double> p_wifi = new ArrayList<Double>();
+        ArrayList<Double> p_fianl = new ArrayList<Double>();
+        res_cal.setPonitPdr(x,y);
+        res_cal.setAnglePdr(current_direct - pre_direct);
+        res_cal.setDistancePdr(step_length);
+        //通过数据库database，计算出相似节点列表res_cal.location_list以及相似度p_wifi
+        rssi.EWKNN(database,p_wifi,res_cal.location_list);
+        //计算角度和距离差
+        res_cal.calAngleList();
+        res_cal.calDistanceList();
+        //计算概率
+        res_cal.calProbability(res_cal.angle_list,res_cal.probability_angle);
+        res_cal.calProbability(res_cal.distance_error_rssi,res_cal.probability_distance);
+        //权重融合
+        res_cal.weightNormalization(p_wifi,res_cal.probability_distance,res_cal.probability_angle,p_fianl,0.8);
+        //用最终的数据计算出融合定位结果
+        res_cal.calFinalPoint(p_fianl,res_cal.location_list);
+        //清空数据，准备进行下一次的计算，将定位结果作为初始位置
+        res_cal.clearAll();
+        x = res_cal.point_final.getX();
+        y = res_cal.point_final.getY();
+        //定位位置信息显示
+        thread.start();
+         */
     }
 
     @Override
@@ -243,10 +379,76 @@ public class PDRActivity extends AppCompatActivity implements View.OnClickListen
     public void onClick(View v) {
         switch(v.getId()){
             case R.id.getstep:
+                pdr_list.add(new point((current_direct - pre_direct),step_length));
+                calFinalStation();
                 Log.i("步行总数", String.valueOf(mSteps1 - mSteps0));
+                break;
+            case R.id.start:
+                //注册传感器以及数据库获取
+                initSensnr();
+                //initDataBase();
+                /**
+                //通过WIFI指纹定位初始化位置
+                RSSI rssi = scanner_rssi();
+                //通过数据库database，计算出相似节点列表res_cal.location_list以及相似度p_wifi
+                rssi.EWKNN(database,new ArrayList<Double>(),new ArrayList<location>());
+                x = rssi.getX();
+                y = rssi.getY();
+                 **/
+                //显示位置数据
+                thread.start();
+                break;
+            case R.id.end:
+                //解除注册
+                mSensorManager.unregisterListener((SensorEventListener) this);
+                //数据上传
+                SimpleDateFormat formatter = new SimpleDateFormat("yyyy年MM月dd日 HH:mm:ss");
+                Date curDate = new Date(System.currentTimeMillis());//获取当前时间
+                String time_str  = formatter.format(curDate);
+                //time_str 格式 2017年3月2号 12:33:00
+                pdr_data = getApplicationContext().getFilesDir().getAbsolutePath() + "/pdr_data"+".txt";
+                rssi_data = getApplicationContext().getFilesDir().getAbsolutePath() + "/rssi_data"+".txt";
+                if(pdr_list.size() > 0) point.writeToFile(pdr_list,pdr_data);
+                if(rssi_list.size() > 0) RSSI.writeToFile(rssi_list,rssi_data);
+                try {
+                    //数据传输不能在主线程中进行，通过子进程实现
+                    new Thread(uploadurlThread).start();
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+                rssi_list.clear();
+                pdr_list.clear();
+                break;
+
+            case R.id.delete:
+                File file = new File(data_filename);
+                // 如果文件路径所对应的文件存在，并且是一个文件，则直接删除
+                if (file.exists() && file.isFile()) {
+                    if (file.delete()) {
+                        Log.e("--Method--", "Copy_Delete.deleteSingleFile: 删除单个文件" + data_filename + "成功！");
+                    } else {
+                        Toast.makeText(getApplicationContext(), "删除单个文件" + data_filename + "失败！", Toast.LENGTH_SHORT).show();
+                    }
+                }else{
+                    Toast.makeText(getApplicationContext(), "删除单个文件失败：" + data_filename + "不存在！", Toast.LENGTH_SHORT).show();
+                }
                 break;
         }
     }
+    //用于上传数据的线程
+    Runnable  uploadurlThread  = new  Runnable (){
+        @Override
+        public void run(){
+            Log.d("数据上传","start");
+            try {
+                NetTool.sendFile(urlStr + "/php/pdr/index.php",pdr_data);
+                NetTool.sendFile(urlStr + "/php/index.php",rssi_data);
+                Log.d(TAG,"上传数据成功");
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+    };
     //计算方位
     @TargetApi(Build.VERSION_CODES.CUPCAKE)
     private void calculateOrientation() {
@@ -256,41 +458,63 @@ public class PDRActivity extends AppCompatActivity implements View.OnClickListen
         SensorManager.getRotationMatrix(R, null, accelerometerValues, magneticFieldValues);
         SensorManager.getOrientation(R, values);
         values[0] = (float) Math.toDegrees(values[0]);
-        Log.i(TAG, values[0]+"");
+        current_direct = values[0];
+        Log.i(TAG, "角度信息：" + values[0]+"");
         values[1] = (float) Math.toDegrees(values[1]);
         values[2] = (float) Math.toDegrees(values[2]);
-        if(values[2] < 0) values[2] += 360;
+        //if(values[2] < 0) values[2] += 360;
+        /**
         direct[0] =  String.valueOf(values[0]);
         direct[1] =  String.valueOf(values[1]);
         direct[2] =  String.valueOf(values[2]);
-
+        **/
         //更新UI界面
         thread.start();
-
-        if(values[0] >= -5 && values[0] < 5){
+        //方向为16个方向中的一个
+        //current_direct = pdr_direction[(int)Math.round((values[0])/24) + 7];
+        int index = 0;
+        double min = Double.MAX_VALUE;
+        for(int i = 0;i < 16;i++) {
+            if(min > Math.abs(pdr_direction[i] - current_direct)) {
+                min = Math.abs(pdr_direction[i] - current_direct);
+                index = i;
+            }
+        }
+        current_direct = pdr_direction[index];
+        /**
+        if(values[0] >= -22.5 && values[0] < 22.5){
             Log.i(TAG, "正北");
+            current_direct = 0;
         }
-        else if(values[0] >= 5 && values[0] < 85){
+        else if(values[0] >= 22.5 && values[0] < 67.5){
             Log.i(TAG, "东北");
+            current_direct = 45;
         }
-        else if(values[0] >= 85 && values[0] <=95){
+        else if(values[0] >= 67.5 && values[0] <= 112.5){
             Log.i(TAG, "正东");
+            current_direct = 90;
         }
-        else if(values[0] >= 95 && values[0] <175){
+        else if(values[0] >= 112.5 && values[0] < 157.5){
             Log.i(TAG, "东南");
+            current_direct = 135;
         }
-        else if((values[0] >= 175 && values[0] <= 180)){
+        else if((values[0] >= 157.5 || values[0] <= -157.5)){
             Log.i(TAG, "正南");
+            current_direct = 180;//或者-180
         }
-        else if(values[0] >= 185 && values[0] <= 265){
+        else if(values[0] >= -157.5 && values[0] <= -112.5){
             Log.i(TAG, "西南");
+            current_direct = -135;
         }
-        else if(values[0] >= 265 && values[0] < 275){
+        else if(values[0] >= -112.5 && values[0] < -67.5){
             Log.i(TAG, "正西");
+            current_direct = -90;
         }
-        else if(values[0] >= 275 && values[0] < 355){
+        else if(values[0] >= -67.5 && values[0] < -22.5){
             Log.i(TAG, "西北");
+            current_direct = -45;
         }
+         */
     }
 }
 

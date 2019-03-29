@@ -32,7 +32,8 @@
         <activity android:name=".DPR.PDRActivity" />
         <activity
             android:name=".Fusion_Algorithm.Fusion_Algorithm_Activity"
-            android:label="@string/title_activity_fusion__algorithm_"></activity>
+            android:label="@string/title_activity_fusion__algorithm_" />
+        <activity android:name=".DPR.PdrTestActivity"></activity>
     </application>
 
 </manifest>

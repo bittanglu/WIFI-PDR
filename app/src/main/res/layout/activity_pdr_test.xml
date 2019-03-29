@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<android.support.constraint.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <TextView
+        android:id="@+id/direction"
+        android:layout_width="163dp"
+        android:layout_height="38dp"
+        android:text="方向"
+        tools:layout_editor_absoluteX="16dp"
+        tools:layout_editor_absoluteY="16dp"
+        tools:ignore="MissingConstraints" />
+
+    <TextView
+        android:id="@+id/step_length"
+        android:layout_width="163dp"
+        android:layout_height="38dp"
+        android:layout_marginStart="24dp"
+        android:text="步长"
+        app:layout_constraintStart_toEndOf="@+id/direction"
+        tools:layout_editor_absoluteY="16dp"
+        tools:ignore="MissingConstraints" />
+
+    <Button
+        android:id="@+id/pdr_start_btn"
+        android:layout_width="357dp"
+        android:layout_height="52dp"
+        android:layout_marginTop="8dp"
+        android:text="Button"
+        app:layout_constraintTop_toBottomOf="@+id/direction"
+        tools:ignore="MissingConstraints"
+        tools:layout_editor_absoluteX="16dp" />
+
+    <Button
+        android:id="@+id/pdr_stop_btn"
+        android:layout_width="357dp"
+        android:layout_height="52dp"
+        android:layout_marginTop="24dp"
+        android:text="Button"
+        app:layout_constraintTop_toBottomOf="@+id/pdr_start_btn"
+        tools:ignore="MissingConstraints"
+        tools:layout_editor_absoluteX="9dp" />
+
+</android.support.constraint.ConstraintLayout>

@@ -1,19 +1,24 @@
 package com.zhangqie.wifi.getRssi;
 
 /**
- * Created by 唐路 on 2018/10/10.
+ * Created by 唐路 on 2018/10/9.
  */
-//位置类，包含成员变量x，y，方差var
-public class location {
+public class location{
     double x;
     double y;
-    double var;
-    location(double x,double y,double var){
+    double distance;
+    location(double x,double y,double distance){
         this.x = x;
         this.y = y;
-        this.var = var;
+        this.distance = distance;
     }
-    public double getVar(){
-        return this.var;
+    public double getX(){
+        return x;
+    }
+    public double getY(){
+        return y;
+    }
+    public double getDis(){
+        return distance;
     }
 }

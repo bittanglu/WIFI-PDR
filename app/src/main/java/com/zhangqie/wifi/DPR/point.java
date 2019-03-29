@@ -1,5 +1,7 @@
 package com.zhangqie.wifi.DPR;
 
+import android.util.Log;
+
 import com.zhangqie.wifi.getRssi.RSSI;
 
 import java.io.FileWriter;
@@ -29,19 +31,22 @@ public class point {
     }
 
     //写入文件操作
-    public String toString(point a) {
+    public String toString() {
         String st = "";
-        st += a.getX() + "," + a.getY();
+        st += this.getX() + "," + this.getY();
         st += "\r\n";
         return st;
     }
-    public void writeToFile(ArrayList<point> list,String filename){
+    public static void writeToFile(ArrayList<point> list, String filename){
         int len = list.size();
         try {
             FileWriter writer = new FileWriter(filename,false);
             for (int i = 0;i < len ;i++) {
                 writer.write(list.get(i).toString());
+                Log.d("PDR文件写入",list.get(i).toString());
             }
+            writer.flush();
+            writer.close();
         } catch (IOException e) {
             e.printStackTrace();
         }

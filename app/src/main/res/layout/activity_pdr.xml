@@ -6,6 +6,15 @@
     android:layout_height="match_parent"
     tools:context="com.zhangqie.wifi.DPR.PDRActivity">
 
+    <Button
+        android:id="@+id/getstep"
+        android:layout_width="match_parent"
+        android:layout_height="44dp"
+        android:text="步数监测"
+        tools:ignore="MissingConstraints"
+        tools:layout_editor_absoluteX="46dp"
+        tools:layout_editor_absoluteY="16dp" />
+
     <TextView
         android:id="@+id/Azimuth"
         android:layout_width="match_parent"
@@ -36,24 +45,15 @@
         tools:ignore="MissingConstraints"
         tools:layout_editor_absoluteX="0dp" />
 
-    <Button
-        android:id="@+id/getstep"
-        android:layout_width="match_parent"
-        android:layout_height="44dp"
-        android:text="getstep"
-        tools:ignore="MissingConstraints"
-        tools:layout_editor_absoluteX="0dp"
-        tools:layout_editor_absoluteY="16dp" />
 
     <TextView
         android:id="@+id/Step"
         android:layout_width="match_parent"
         android:layout_height="44dp"
-        android:layout_marginTop="8dp"
         android:text="当前步数"
-        app:layout_constraintTop_toBottomOf="@+id/Roll"
+        tools:ignore="MissingConstraints"
         tools:layout_editor_absoluteX="46dp"
-        tools:ignore="MissingConstraints" />
+        app:layout_constraintTop_toBottomOf="@+id/Roll" />
 
     <TextView
         android:id="@+id/Location_WIFI"
@@ -64,4 +64,30 @@
         app:layout_constraintTop_toBottomOf="@+id/Step"
         tools:layout_editor_absoluteX="46dp"
         tools:ignore="MissingConstraints" />
+
+    <Button
+        android:id="@+id/start"
+        android:layout_width="match_parent"
+        android:layout_height="44dp"
+        android:text="开始定位"
+        tools:ignore="MissingConstraints"
+        tools:layout_editor_absoluteX="46dp"
+        app:layout_constraintTop_toBottomOf="@+id/Location_WIFI" />
+    <Button
+        android:id="@+id/end"
+        android:layout_width="match_parent"
+        android:layout_height="44dp"
+        android:text="结束定位"
+        tools:ignore="MissingConstraints"
+        tools:layout_editor_absoluteX="46dp"
+        app:layout_constraintTop_toBottomOf="@+id/start" />
+    <Button
+        android:id="@+id/delete"
+        android:layout_width="match_parent"
+        android:layout_height="44dp"
+        android:text="删除数据库"
+        tools:ignore="MissingConstraints"
+        tools:layout_editor_absoluteX="46dp"
+        app:layout_constraintTop_toBottomOf="@+id/end" />
+
 </android.support.constraint.ConstraintLayout>
