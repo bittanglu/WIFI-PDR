@@ -58,7 +58,7 @@ public class PDRActivity extends AppCompatActivity implements View.OnClickListen
     float[] accelerometerValues = new float[3];
     float[] magneticFieldValues = new float[3];
     float mSteps0 = 0,mSteps1 = 0;
-    double pre_direct =  0;//x轴方向，东北
+    double pre_direct =  173;  //x轴方向
     double current_direct = 0.0;
     double x = 0.0,y = 0.0,dx = 0.0,dy = 0.0;
     double step_length = 0.75;
@@ -75,7 +75,7 @@ public class PDRActivity extends AppCompatActivity implements View.OnClickListen
     String pdr_data = "";
     String rssi_data = "";
     //服务器存储位置
-    String urlStr = "https://567a4fa2.ngrok.io";
+    String urlStr = "https://8c190cc6.ngrok.io";
     //记录PDR行走过程
     ArrayList<point> pdr_list = new ArrayList<point>();
     String record = "";
@@ -84,6 +84,10 @@ public class PDRActivity extends AppCompatActivity implements View.OnClickListen
     //融合算法辅助类以及变量
     pdr_rssi res_cal = new pdr_rssi();
     ArrayList<location> location_res;
+    //记录角度值
+    float[] angle_matrix =  new float[100];
+    int angle_index = 0;
+    StepController Step_Controller;
 
     @Override
     protected void onCreate(Bundle savedInstanceState){
@@ -91,13 +95,23 @@ public class PDRActivity extends AppCompatActivity implements View.OnClickListen
         setContentView(R.layout.activity_pdr);
         initView();
         //initSensnr();
+        addBasePedometerListener();
         thread.start();
         //加载数据库
         //initDataBase();
     }
-
+    private void addBasePedometerListener() {
+        StepController.StepCallback callback=new StepController.StepCallback() {
+            @Override
+            public void refreshStep(int step, float stepLength, float distance) {
+                Log.d(TAG,"catchStep");
+                thread.start();
+            }
+        };
+        //初始化
+        Step_Controller =  new StepController(callback);
+    }
     private void initDataBase() {
-
         data_filename = getApplicationContext().getFilesDir().getAbsolutePath() + "/database.txt";
         Log.d("文件目录",data_filename);
         File file = new File(data_filename);
@@ -158,8 +172,10 @@ public class PDRActivity extends AppCompatActivity implements View.OnClickListen
         for (Sensor sensor : sensorList) {
             Log.i(TAG,"Supported Sensor: "+sensor.getName());
         }
+        int versionCodes = Build.VERSION.SDK_INT;//取得SDK版本
+
         // 获取计步器sensor
-        stepCounter = mSensorManager.getDefaultSensor(Sensor.TYPE_STEP_COUNTER);
+        stepCounter = mSensorManager.getDefaultSensor(Sensor.TYPE_STEP_DETECTOR);
         aSensor = mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
         mSensor = mSensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD);
         if(stepCounter != null){
@@ -241,8 +257,8 @@ public class PDRActivity extends AppCompatActivity implements View.OnClickListen
                 Azimuth.setText("当前方向:" + current_direct);
                 Pithch.setText("与X轴夹角:" + Double.toString(current_direct - pre_direct));
                 Roll.setText("移动距离:" + "(" + dx + "," + dy + ")");
-                String temp = "移动步数:" + (mSteps1 - mSteps0) +" ";
-                temp += "当前坐标（" + x + "," + y + ")";
+                String temp = "移动步数:" + Step_Controller.getStep()+" ";
+                //temp += "当前坐标（" + x + "," + y + ")";
                 Step.setText(temp);
             }
         }
@@ -285,7 +301,6 @@ public class PDRActivity extends AppCompatActivity implements View.OnClickListen
             }
         }
         pre_direct = pdr_direction[index];
-
     }
     // 实现SensorEventListener回调接口，在sensor改变时，会回调该接口
     // 并将结果通过event回传给app处理
@@ -294,13 +309,20 @@ public class PDRActivity extends AppCompatActivity implements View.OnClickListen
     public void onSensorChanged(SensorEvent event) {
         if (event.sensor.getType() == Sensor.TYPE_MAGNETIC_FIELD)
             magneticFieldValues = event.values;
-        if (event.sensor.getType() == Sensor.TYPE_ACCELEROMETER)
+        if (event.sensor.getType() == Sensor.TYPE_ACCELEROMETER){
             accelerometerValues = event.values;
+            Step_Controller.refreshAcc(accelerometerValues,System.currentTimeMillis());
+        }
+
         RSSI get_rssi = scanner_rssi();
         calculateOrientation();
+        angle_index = (angle_index+1)%100;
+        angle_matrix[angle_index] = (float) current_direct;
         //步数更新
-        if (event.sensor.getType() == Sensor.TYPE_STEP_COUNTER)
+        if (event.sensor.getType() == Sensor.TYPE_STEP_DETECTOR)
         {
+            Step_Controller.addStep();
+            pdr_list.add(new point(getSmoothAngle(5),Step_Controller.getLength()));
             if (mSteps0 == 0)
             {
                 mSteps0 = event.values[0];
@@ -319,12 +341,47 @@ public class PDRActivity extends AppCompatActivity implements View.OnClickListen
                 x += dx;
                 y += dy;
             }
-            //pdr_list.add(new point((current_direct - pre_direct),step_length));
             //calFinalStation();
             //界面更新
             thread.start();
             Log.i(TAG,"Detected step changes:"+event.values[0]);
         }
+    }
+
+    private double getSmoothAngle(int count){
+        double[] angle = new double[count];
+        int k = 0;
+        int most_num = 0;
+        int i;
+        if(angle_index < count - 1){
+            for(i = 99;i > 100 - count + angle_index;i--){
+                angle[k++] = angle_matrix[i];
+                if(angle_matrix[i] > 145 || angle_matrix[i] < -145)
+                    most_num++;
+            }
+            for(i = 0;i <= angle_index;i++) {
+                angle[k++] = angle_matrix[i];
+                if(angle_matrix[i] > 145 || angle_matrix[i] < -145)
+                    most_num++;
+            }
+        }else{
+            for(i = angle_index-count+1;i <= angle_index;i++) {
+                angle[k++] = angle_matrix[i];
+                if(angle_matrix[i] > 145 || angle_matrix[i] < -145)
+                    most_num++;
+            }
+        }
+        if(most_num > count/2){
+            for(i = 0;i<count;i++){
+                if(angle[i] > 145 || angle[i] < -145)
+                    angle[i] +=160;
+            }
+        }
+        double angle_sum = 0.0;
+        for(i = 0 ;i < count;i++) {
+            angle_sum += angle[i];
+        }
+        return angle_sum/count;
     }
 
     public void calFinalStation(){
@@ -379,8 +436,8 @@ public class PDRActivity extends AppCompatActivity implements View.OnClickListen
     public void onClick(View v) {
         switch(v.getId()){
             case R.id.getstep:
-                pdr_list.add(new point((current_direct - pre_direct),step_length));
-                calFinalStation();
+                //pdr_list.add(new point((current_direct - pre_direct),step_length));
+                //calFinalStation();
                 Log.i("步行总数", String.valueOf(mSteps1 - mSteps0));
                 break;
             case R.id.start:
@@ -402,10 +459,6 @@ public class PDRActivity extends AppCompatActivity implements View.OnClickListen
                 //解除注册
                 mSensorManager.unregisterListener((SensorEventListener) this);
                 //数据上传
-                SimpleDateFormat formatter = new SimpleDateFormat("yyyy年MM月dd日 HH:mm:ss");
-                Date curDate = new Date(System.currentTimeMillis());//获取当前时间
-                String time_str  = formatter.format(curDate);
-                //time_str 格式 2017年3月2号 12:33:00
                 pdr_data = getApplicationContext().getFilesDir().getAbsolutePath() + "/pdr_data"+".txt";
                 rssi_data = getApplicationContext().getFilesDir().getAbsolutePath() + "/rssi_data"+".txt";
                 if(pdr_list.size() > 0) point.writeToFile(pdr_list,pdr_data);
@@ -471,7 +524,6 @@ public class PDRActivity extends AppCompatActivity implements View.OnClickListen
         //更新UI界面
         thread.start();
         //方向为16个方向中的一个
-        //current_direct = pdr_direction[(int)Math.round((values[0])/24) + 7];
         int index = 0;
         double min = Double.MAX_VALUE;
         for(int i = 0;i < 16;i++) {
@@ -480,8 +532,8 @@ public class PDRActivity extends AppCompatActivity implements View.OnClickListen
                 index = i;
             }
         }
-        current_direct = pdr_direction[index];
-        /**
+        //current_direct = pdr_direction[index];
+        /*
         if(values[0] >= -22.5 && values[0] < 22.5){
             Log.i(TAG, "正北");
             current_direct = 0;
@@ -514,7 +566,7 @@ public class PDRActivity extends AppCompatActivity implements View.OnClickListen
             Log.i(TAG, "西北");
             current_direct = -45;
         }
-         */
+        */
     }
 }
 

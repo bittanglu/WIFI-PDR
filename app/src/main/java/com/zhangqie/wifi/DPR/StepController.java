@@ -24,10 +24,10 @@ public class StepController {
     private int Step=0;
 
     //步长
-    private float Length=0;
+    private float Length=0.6f;
 
     //行进距离
-    private float Distance=0;
+    private float Distance = 0.0f;
 
     //状态
     private int State=STAY;
@@ -35,7 +35,9 @@ public class StepController {
     public int getStep(){
         return this.Step;
     }
-
+    public void addStep(){
+        Step++;
+    }
     //得到步长
     public float getLength(){
         return this.Length;
@@ -138,7 +140,7 @@ public class StepController {
                             Log.d("Step","步数加一");
                             //步长计算
                             DetectStepLength((int) T, H);
-                            ++Step;
+                            //++Step;
                             callback.refreshStep(Step,Length,Distance);
                         }
                     }
@@ -171,7 +173,8 @@ public class StepController {
 
     //步长计算,该公式利用最小二乘法推导出
     private void DetectStepLength(int time,float f){
-        float steplength=0.35f-0.000155f*time+0.1638f*(float) Math.sqrt(f);
+        float steplength=0.40f-0.000155f*time+0.1638f*(float) Math.sqrt(f);
+        //float steplength=0.35f-0.000155f*time+0.1638f*(float) Math.sqrt(f);
         this.Length=(this.Length+steplength)/2;
         Distance+=steplength;
     }

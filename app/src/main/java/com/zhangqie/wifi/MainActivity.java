@@ -26,6 +26,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         findViewById(R.id.btn2).setOnClickListener(this);
         findViewById(R.id.btn3).setOnClickListener(this);
         findViewById(R.id.btn4).setOnClickListener(this);
+        findViewById(R.id.btn5).setOnClickListener(this);
     }
 
     @Override
@@ -38,10 +39,13 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 startActivity(new Intent(MainActivity.this, Demo2Activity.class));
                 break;
             case R.id.btn3:
-                startActivity(new Intent(MainActivity.this, PdrTestActivity.class));
+                startActivity(new Intent(MainActivity.this, PDRActivity.class));
                 break;
             case R.id.btn4:
                 startActivity(new Intent(MainActivity.this, GetWifiRssiActivity.class));
+                break;
+            case R.id.btn5:
+                startActivity(new Intent(MainActivity.this, PdrTestActivity.class));
                 break;
         }
     }
