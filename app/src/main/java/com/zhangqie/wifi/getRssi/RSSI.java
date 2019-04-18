@@ -341,6 +341,7 @@ public  class RSSI{
     //res为指纹库列表
     //probability_distance为结果列表的可能性列表
     //location_res为位置结果列表
+    //Enhanced Weighted K-Nearest Neighbor , Consideration of node stability
     public void EWKNN(ArrayList<RSSI> res,ArrayList<Double> probability_distance,ArrayList<location> location_res){
         ArrayList<Integer> x = new ArrayList<Integer>();
         ArrayList<Integer> y = new ArrayList<Integer>();
@@ -348,8 +349,10 @@ public  class RSSI{
         int len_b = 0;
         int min = -105;
         //优先队列
-        Queue<location> locationPriorityQueue = new PriorityQueue<>(2,varComparator);
+        ArrayList<location> locationPriorityQueue = new ArrayList<location>();
         int index = 0;
+        this.x = 0;
+        this.y = 0;
         for(RSSI temp : res){
             double sum_var = 0;
             len_b = temp.BSSID.size();
@@ -394,19 +397,19 @@ public  class RSSI{
             y.clear();
         }
         ArrayList<location> location_list = new ArrayList<location>();
-        location location_standard = locationPriorityQueue.poll();
-        if(location_standard == null) System.out.println("RSSI:location = null");
-        location_list.add(location_standard);
+        //sort
+        Collections.sort(locationPriorityQueue,varComparator);
 
         //Computing Reserved Nodes
-        double dis_sum = location_standard.getDis();
-        while(true){
-            location location_temp = locationPriorityQueue.poll();
-            if(location_temp == null || location_temp.getDis() > 1.5 * location_standard.getDis())
-                break;
-            location_list.add(location_temp);
-            dis_sum += location_temp.getDis();
+        double dis_sum = 0;
+        int k = 0;
+        for(location location_temp : locationPriorityQueue){
+            if(location_temp.getDis() < 1.7 * locationPriorityQueue.get(0).getDis()){
+                location_list.add(location_temp);
+                dis_sum += location_temp.getDis();
+            }
         }
+        //System.out.println("First:" + location_list.size());
         double dis_average = dis_sum / location_list.size();
         double Reciprocal_dis_sum = 0.0;
         int count = 0;
@@ -417,14 +420,18 @@ public  class RSSI{
                     System.out.println("dis_average:" + Double.toString(dis_average));
                     System.out.println("location_temp.getDis():" + Double.toString(location_temp .getDis()));
                 }
-                break;
+                if(count > 1)break;
             }
             count++;
+            if(location_temp.getDis() == 0)
+                location_temp.setDis(1);
             this.x += location_temp.x/location_temp.getDis();
             this.y += location_temp.y/location_temp.getDis();
+            //System.out.println("Distance:" + location_temp.getDis());
             location_res.add(location_temp);
             Reciprocal_dis_sum += 1/location_temp.getDis();
         }
+        //System.out.println("Second:" + count);
         this.x = this.x/Reciprocal_dis_sum;
         this.y = this.y/Reciprocal_dis_sum;
         for(int i = 0;i < location_res.size();i++){

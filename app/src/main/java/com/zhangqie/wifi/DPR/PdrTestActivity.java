@@ -81,7 +81,7 @@ public class PdrTestActivity extends AppCompatActivity implements View.OnClickLi
         falg = true;
     }
 
-    private void addCountStepListener() {
+    private void addCountStepListener(){
         stepCounter = mSensorManager.getDefaultSensor(Sensor.TYPE_STEP_COUNTER);
         if(stepCounter != null){
             // 如果sensor找到，则注册监听器

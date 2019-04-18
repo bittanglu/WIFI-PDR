@@ -52,7 +52,7 @@ public class GetWifiRssiActivity extends AppCompatActivity implements View.OnCli
     protected String ssid;
     int collection_count = 30; //采集次数
 
-    protected String sever_url = "http://a7b22499.ngrok.io/php/index.php";
+    protected String sever_url = "https://8c383a9b.ngrok.io/php/index.php";
     //定义对话框
     AlertDialog.Builder upload_builder = null;
     AlertDialog.Builder clear_builder = null;
@@ -66,7 +66,7 @@ public class GetWifiRssiActivity extends AppCompatActivity implements View.OnCli
             listView.setAdapter(adapter);
             Toast.makeText(GetWifiRssiActivity.this, "扫描结束，可以进行下一次扫描", 0)
                     .show();
-            Log.d("开始结束","end");
+            Log.d("采集结束","end");
         }
     }
 

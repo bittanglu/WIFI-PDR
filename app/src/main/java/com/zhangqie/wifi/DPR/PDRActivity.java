@@ -75,7 +75,7 @@ public class PDRActivity extends AppCompatActivity implements View.OnClickListen
     String pdr_data = "";
     String rssi_data = "";
     //服务器存储位置
-    String urlStr = "https://8c190cc6.ngrok.io";
+    String urlStr = "https://7947fbc6.ngrok.io";
     //记录PDR行走过程
     ArrayList<point> pdr_list = new ArrayList<point>();
     String record = "";
@@ -100,7 +100,7 @@ public class PDRActivity extends AppCompatActivity implements View.OnClickListen
         //加载数据库
         //initDataBase();
     }
-    private void addBasePedometerListener() {
+    private void addBasePedometerListener(){
         StepController.StepCallback callback=new StepController.StepCallback() {
             @Override
             public void refreshStep(int step, float stepLength, float distance) {
@@ -132,8 +132,7 @@ public class PDRActivity extends AppCompatActivity implements View.OnClickListen
             //数据库不存在，服务器获取数据
             try {
                 Log.d(TAG,"本地数据库不存在，网络获取中...");
-                String data_str = NetTool.readTxtFile( urlStr+"/php/database.txt","utf-8");
-                Log.d(TAG,data_str);
+                String data_str = NetTool.readFileByUrl(urlStr+"/php/database.txt");
                 RSSI.writeToFile(data_str,data_filename);
                 RSSI.readFromFile(database,data_filename);
                 Log.d(TAG,"数据库下载完成");
@@ -176,6 +175,7 @@ public class PDRActivity extends AppCompatActivity implements View.OnClickListen
 
         // 获取计步器sensor
         stepCounter = mSensorManager.getDefaultSensor(Sensor.TYPE_STEP_DETECTOR);
+        //TYPE_STEP_DETECTOR
         aSensor = mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
         mSensor = mSensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD);
         if(stepCounter != null){
@@ -252,13 +252,12 @@ public class PDRActivity extends AppCompatActivity implements View.OnClickListen
         @Override
         public void handleMessage(Message msg){
             super.handleMessage(msg);
-            //msg.what == 1，进行显示的更新
             if(msg.what == 1){
                 Azimuth.setText("当前方向:" + current_direct);
                 Pithch.setText("与X轴夹角:" + Double.toString(current_direct - pre_direct));
                 Roll.setText("移动距离:" + "(" + dx + "," + dy + ")");
                 String temp = "移动步数:" + Step_Controller.getStep()+" ";
-                //temp += "当前坐标（" + x + "," + y + ")";
+                temp += "当前坐标（" + x + "," + y + ")";
                 Step.setText(temp);
             }
         }
@@ -266,12 +265,17 @@ public class PDRActivity extends AppCompatActivity implements View.OnClickListen
     final Thread thread = new Thread(new Runnable(){
         @Override
         public void run() {
-            Message message = new Message();
-            message.what = 1;
-            handler.sendMessage(message);
+            Message msg = new Message();
+            msg.what = 1;
+            handler.sendMessage(msg);
         }
     });
-
+    final Thread thread_refesh_data = new Thread(new Runnable(){
+        @Override
+        public void run() {
+            initDataBase();
+        }
+    });
     @TargetApi(Build.VERSION_CODES.CUPCAKE)
     private void initView(){
         //显示方向角数据
@@ -290,9 +294,13 @@ public class PDRActivity extends AppCompatActivity implements View.OnClickListen
         end_pdr.setOnClickListener(this);
         Button detele = (Button) findViewById(R.id.delete);
         detele.setOnClickListener(this);
+        Button refesh = (Button) findViewById(R.id.refesh);
+        refesh.setOnClickListener(this);
         //数据初始化
+        /*
         int index = 0;
         double min = Double.MAX_VALUE;
+
         for(int i = 0;i < 16;i++) {
             pdr_direction[i] = (float) (24 * i - 180);
             if(min > Math.abs(pdr_direction[i] - 173)) {
@@ -301,6 +309,7 @@ public class PDRActivity extends AppCompatActivity implements View.OnClickListen
             }
         }
         pre_direct = pdr_direction[index];
+        */
     }
     // 实现SensorEventListener回调接口，在sensor改变时，会回调该接口
     // 并将结果通过event回传给app处理
@@ -313,41 +322,23 @@ public class PDRActivity extends AppCompatActivity implements View.OnClickListen
             accelerometerValues = event.values;
             Step_Controller.refreshAcc(accelerometerValues,System.currentTimeMillis());
         }
-
-        RSSI get_rssi = scanner_rssi();
         calculateOrientation();
         angle_index = (angle_index+1)%100;
         angle_matrix[angle_index] = (float) current_direct;
         //步数更新
         if (event.sensor.getType() == Sensor.TYPE_STEP_DETECTOR)
         {
+            /*
             Step_Controller.addStep();
-            pdr_list.add(new point(getSmoothAngle(5),Step_Controller.getLength()));
-            if (mSteps0 == 0)
-            {
-                mSteps0 = event.values[0];
-                mSteps1 = event.values[0];
-            }
-            else {
-                mSteps1 = event.values[0];
-            }
-            //pre_direct = current_direct;
-            //current_direct = Double.valueOf(direct[0]);
-
-            //位置更新
-            if (mSteps1 != mSteps0) {
-                dx = step_length * Math.cos(current_direct - pre_direct);
-                dy = step_length * Math.sin(current_direct - pre_direct);
-                x += dx;
-                y += dy;
-            }
-            //calFinalStation();
-            //界面更新
             thread.start();
+            //pdr_list.add(new point(getSmoothAngle(5),Step_Controller.getLength()));
+            //每走三步进行一次WIFI监测
+            if(Step_Controller.getStep() % 3 == 0) calFinalStation();
             Log.i(TAG,"Detected step changes:"+event.values[0]);
+            */
         }
     }
-
+    //平均移动均值滤波，选取之前的count个数做均值为当前值
     private double getSmoothAngle(int count){
         double[] angle = new double[count];
         int k = 0;
@@ -383,13 +374,11 @@ public class PDRActivity extends AppCompatActivity implements View.OnClickListen
         }
         return angle_sum/count;
     }
-
+    //计算融合之后的定位结果
     public void calFinalStation(){
         RSSI rssi = scanner_rssi();
         rssi_list.add(rssi);
-        /***
-         * 进行一次计算
-         *
+         // 进行一次计算
         ArrayList<Double> p_wifi = new ArrayList<Double>();
         ArrayList<Double> p_fianl = new ArrayList<Double>();
         res_cal.setPonitPdr(x,y);
@@ -409,11 +398,12 @@ public class PDRActivity extends AppCompatActivity implements View.OnClickListen
         res_cal.calFinalPoint(p_fianl,res_cal.location_list);
         //清空数据，准备进行下一次的计算，将定位结果作为初始位置
         res_cal.clearAll();
-        x = res_cal.point_final.getX();
-        y = res_cal.point_final.getY();
+        //x = res_cal.point_final.getX();
+        //y = res_cal.point_final.getY();
+        x = rssi.getX();
+        y = rssi.getY();
         //定位位置信息显示
         thread.start();
-         */
     }
 
     @Override
@@ -434,24 +424,33 @@ public class PDRActivity extends AppCompatActivity implements View.OnClickListen
 
     @Override
     public void onClick(View v) {
+        RSSI rssi;
         switch(v.getId()){
             case R.id.getstep:
-                //pdr_list.add(new point((current_direct - pre_direct),step_length));
-                //calFinalStation();
+                //测试阶段使用
+                Step_Controller.addStep();
+                pdr_list.add(new point(getSmoothAngle(5),Step_Controller.getLength()));
+                calFinalStation();
+                /*
+                rssi = scanner_rssi();
+                rssi.EWKNN(database,new ArrayList<Double>(),new ArrayList<location>());
+                x = rssi.getX();
+                y = rssi.getY();
+                */
+                //显示位置数据
+                thread.start();
                 Log.i("步行总数", String.valueOf(mSteps1 - mSteps0));
                 break;
             case R.id.start:
                 //注册传感器以及数据库获取
                 initSensnr();
-                //initDataBase();
-                /**
+                thread_refesh_data.start();
                 //通过WIFI指纹定位初始化位置
-                RSSI rssi = scanner_rssi();
+                rssi = scanner_rssi();
                 //通过数据库database，计算出相似节点列表res_cal.location_list以及相似度p_wifi
                 rssi.EWKNN(database,new ArrayList<Double>(),new ArrayList<location>());
                 x = rssi.getX();
                 y = rssi.getY();
-                 **/
                 //显示位置数据
                 thread.start();
                 break;
@@ -474,6 +473,7 @@ public class PDRActivity extends AppCompatActivity implements View.OnClickListen
                 break;
 
             case R.id.delete:
+                //文件的删除
                 File file = new File(data_filename);
                 // 如果文件路径所对应的文件存在，并且是一个文件，则直接删除
                 if (file.exists() && file.isFile()) {
@@ -485,6 +485,13 @@ public class PDRActivity extends AppCompatActivity implements View.OnClickListen
                 }else{
                     Toast.makeText(getApplicationContext(), "删除单个文件失败：" + data_filename + "不存在！", Toast.LENGTH_SHORT).show();
                 }
+                break;
+            case R.id.refesh:
+                rssi = scanner_rssi();
+                rssi.EWKNN(database,new ArrayList<Double>(),new ArrayList<location>());
+                x = rssi.getX();
+                y = rssi.getY();
+                thread.start();
                 break;
         }
     }
@@ -522,8 +529,9 @@ public class PDRActivity extends AppCompatActivity implements View.OnClickListen
         direct[2] =  String.valueOf(values[2]);
         **/
         //更新UI界面
-        thread.start();
+        //thread.start();
         //方向为16个方向中的一个
+        /*
         int index = 0;
         double min = Double.MAX_VALUE;
         for(int i = 0;i < 16;i++) {
@@ -533,7 +541,6 @@ public class PDRActivity extends AppCompatActivity implements View.OnClickListen
             }
         }
         //current_direct = pdr_direction[index];
-        /*
         if(values[0] >= -22.5 && values[0] < 22.5){
             Log.i(TAG, "正北");
             current_direct = 0;

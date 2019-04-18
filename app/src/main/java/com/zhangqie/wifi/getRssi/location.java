@@ -18,7 +18,11 @@ public class location{
     public double getY(){
         return y;
     }
+    public void setDis(double distance){
+        this.distance = distance;
+    }
     public double getDis(){
         return distance;
     }
+
 }

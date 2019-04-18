@@ -92,8 +92,15 @@ public class pdr_rssi{
     //Weight normalization
     public void weightNormalization(ArrayList<Double> p_wifi,ArrayList<Double> listA,ArrayList<Double> listB,ArrayList<Double> p_final,double weight){
         int len = listA.size();
+        double p_sum =0.0;
+        ArrayList<Double> p_temp = new ArrayList<Double>();
         for (int i = 0;i < len;i++){
-            p_final.add(weight * p_wifi.get(i) + (1 - weight)*listA.get(i)*listB.get(i));
+            double p = weight * p_wifi.get(i) + (1 - weight)*listA.get(i)*listB.get(i);
+            p_sum += p;
+            p_temp.add(p);
+        }
+        for (int i = 0;i < len;i++){
+            p_final.add(p_temp.get(i)/p_sum);
         }
     }
     public void calFinalPoint(ArrayList<Double> p,ArrayList<location> list) {
